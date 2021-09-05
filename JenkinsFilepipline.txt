@@ -1,0 +1,35 @@
+node{
+    def buildNumber = BUILD_NUMBER
+    stage("Git clone"){
+            
+        git url: 'https://github.com/MithunTechnologiesDevOps/java-web-app-docker.git',branch: 'master' 
+        
+    }
+    
+    stage("Maven Clean Package"){
+        
+        def mavenHome= tool name: "Maven",type: "maven"
+        
+        sh "${mavenHome}/bin/mvn clean package"
+    }
+    
+    stage("Build Docker Image"){
+        sh "docker build -t vishnu1995kh/java-web-app-docker:${buildNumber} ."
+    }
+    
+    stage("Docker login and push"){
+        withCredentials([string(credentialsId: 'Docker_hub_pwd', variable: 'Docker_hub_pwd')]) {
+            sh "docker login -u vishnu1995kh -p ${Docker_hub_pwd}"
+        }
+        sh "docker push vishnu1995kh/java-web-app-docker:${buildNumber}"
+        
+    }
+    
+    stage("Deploy Application As Docker container in docker deployment server"){
+        sshagent(['Docker_Dev_server_ssh']) {
+            sh "ssh -o StrictHostKeyChecking=no ubuntu@172.31.18.11 docker rm -f javawebappcontainer || true"
+            
+            sh "ssh -o StrictHostKeyChecking=no ubuntu@172.31.18.11 docker run -d -p 8080:8080 --name javawebappcontainer vishnu1995kh/java-web-app-docker:${buildNumber}"
+        }
+    }
+}
